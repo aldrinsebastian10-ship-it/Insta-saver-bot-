@@ -1,40 +1,57 @@
-import os
-import telebot
-import instaloader
+import requests
+import re
+import time
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Telegram bot token from BotFather
-BOT_TOKEN = os.getenv("8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc", "8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc")
-bot = telebot.TeleBot(BOT_TOKEN)
+# Paste your Telegram bot token here
+TELEGRAM_TOKEN = "8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc"
 
-# Instagram loader
-loader = instaloader.Instaloader()
+# Paste your Instagram sessionid here
+SESSION_ID = "45664980228%3AALbNp6y6waA5gZ%3A16%3AAYcHC2_F0KD3o8kcXKAdTJvPR_Fc2c7d9bg3SrCVMw"
 
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "👋 Hi! Send me any public Instagram post/reel/story link and I’ll download it for you.")
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Cookie": f"sessionid={SESSION_ID};",
+}
 
-@bot.message_handler(func=lambda msg: True)
-def download_instagram(message):
-    url = message.text.strip()
+def extract_video_url(url):
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            match = re.search(r'"video_url":"(.*?)"', response.text)
+            if match:
+                return match.group(1).replace("\\u0026", "&")
+    except requests.exceptions.RequestException:
+        return None
+    return None
 
-    if "instagram.com" not in url:
-        bot.reply_to(message, "⚠️ Please send me a valid Instagram link.")
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Send me an Instagram Reel URL and I will fetch the video.")
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text.strip()
+    if "instagram.com/reel/" not in url:
+        await update.message.reply_text("Please send a valid Instagram Reel URL.")
         return
 
-    try:
-        post = instaloader.Post.from_shortcode(loader.context, url.split("/")[-2])
-        filename = f"{post.shortcode}.jpg"
+    await update.message.reply_text("Fetching video... Please wait.")
+    time.sleep(2)  # Basic rate limiting
 
-        loader.download_post(post, target="downloads")
-        filepath = os.path.join("downloads", filename)
+    video_url = extract_video_url(url)
+    if video_url:
+        try:
+            await update.message.reply_video(video_url)
+        except:
+            await update.message.reply_text("Video too large for Telegram to send directly.")
+    else:
+        await update.message.reply_text("Failed to fetch video. Session may be invalid or post is private.")
 
-        if os.path.exists(filepath):
-            with open(filepath, "rb") as f:
-                bot.send_photo(message.chat.id, f)
-        else:
-            bot.reply_to(message, "❌ Couldn’t fetch the media.")
+def main():
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.run_polling()
 
-    except Exception as e:
-        bot.reply_to(message, f"⚠️ Error: {str(e)}")
-
-bot.polling()
+if __name__ == "__main__":
+    main()
