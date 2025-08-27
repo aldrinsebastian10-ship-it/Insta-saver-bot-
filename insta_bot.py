@@ -3,8 +3,8 @@ import telebot
 import instaloader
 
 # Telegram bot token from BotFather
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_TELEGRAM_BOT_TOKEN")
-bot = telebot.TeleBot(BOT_TOKEN)
+BOT_TOKEN = os.getenv("8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc", "8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc")
+bot = telebot.TeleBot(8286656584:AAH0t5BP6kXB3TtQZB-KzhP5oqILnDps4Vc)
 
 # Instagram loader
 loader = instaloader.Instaloader()
